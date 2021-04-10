@@ -9,7 +9,7 @@ let go () =
     print_newline ();
     print_string "Result : "
   end;
-  print_string (string_of_int (Eval.f program));	(* 結果を表示する *)
+  print_string (Value.to_string (Eval.f program));	(* 結果を表示する *)
   print_newline ()
 
 (* スタートアップ *)

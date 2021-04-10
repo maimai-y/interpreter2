@@ -21,6 +21,7 @@
 /* 下に行くほど強く結合する */
 %left PLUS MINUS
 %left TIMES DIVIDE
+%nonassoc UNARY
 /* nonassoc は結合なし（毎回、かっこを書かなくてはならない）、
    left は左結合、right は右結合 */
 
@@ -36,6 +37,8 @@ simple_expr:
 expr:
 | simple_expr
 	{ $1 }
+|	MINUS expr %prec UNARY
+	{ Syntax.Op (Syntax.Number (0), Syntax.Minus, $2) }
 | expr PLUS expr
 	{ Syntax.Op ($1, Syntax.Plus, $3) }
 | expr MINUS expr
