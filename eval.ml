@@ -46,18 +46,17 @@ let rec g2 expr env cont = match expr with
       let new_env = Env.extend env x v1 in
       g2 t2 new_env cont)
   | Letrec (f, x, t1, t2) ->
-      let v1 = VClosureR (f, x, t1, env) in
-      let new_env = Env.extend env f v1 in
+      let new_env = Env.extend env f 
+        (VClosureR (fun v1 -> fun v2 -> fun c -> g2 t1 (Env.extend (Env.extend env x v2) f v1) c)) in
       g2 t2 new_env cont
   | Fun (x, t) ->
-      cont (VClosure (x, t, env))
+      cont (VClosure (fun v2 -> fun c -> g2 t (Env.extend env x v2) c))
   | App (t1, t2) ->
       g2 t1 env (fun v1 ->
       g2 t2 env (fun v2 ->
       begin match v1 with
-          VClosure (x, t, e) -> g2 t (Env.extend e x v2) cont
-        | VClosureR (f, x, t, e) ->
-            g2 t (Env.extend (Env.extend e x v2) f v1) cont
+          VClosure (f) -> f v2 cont
+        | VClosureR (f) -> f v1 v2 cont
         | VError (s) -> VError (s)
         | _ -> VError ("Not a function: " ^
                        Value.to_string v1)
