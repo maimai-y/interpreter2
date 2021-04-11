@@ -62,7 +62,12 @@ let rec g2 expr env cont = match expr with
         | _ -> VError ("Not a function: " ^
                        Value.to_string v1)
       end))
-  | Try (t1, t2) -> VError "Try not supported yet."
+  | Try (t1, t2) ->
+      let v1 = g2 t1 env (fun x -> x) in
+      begin match v1 with
+          VError (s) -> g2 t2 env cont
+        | _ -> cont v1
+      end
   | Shift (x, t) -> VError "Shift not supported yet."
   | Reset (t) -> VError "Reset not supported yet."
 
