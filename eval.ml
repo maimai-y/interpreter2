@@ -49,6 +49,10 @@ let rec g2 expr env cont = match expr with
       let new_env = Env.extend env f 
         (VClosureR (fun v1 -> fun v2 -> fun c -> g2 t1 (Env.extend (Env.extend env x v2) f v1) c)) in
       g2 t2 new_env cont
+      (* let rec を使った別解 *)
+      (* let rec vclo = VClosure (fun v -> fun c -> g2 t1 (Env.extend (Env.extend env x v) f vclo) c) in
+      let new_env = Env.extend env f vclo in
+      g2 t2 new_env cont *)
   | Fun (x, t) ->
       cont (VClosure (fun v2 -> fun c -> g2 t (Env.extend env x v2) c))
   | App (t1, t2) ->
@@ -58,6 +62,7 @@ let rec g2 expr env cont = match expr with
           VClosure (f) -> f v2 cont
         | VClosureR (f) -> f v1 v2 cont
         | VError (s) -> VError (s)
+        | VCont (f) -> cont (f v2)
         | _ -> VError ("Not a function: " ^
                        Value.to_string v1)
       end))
@@ -67,8 +72,12 @@ let rec g2 expr env cont = match expr with
           VError (s) -> g2 t2 env cont
         | _ -> cont v1
       end
-  | Shift (x, t) -> VError "Shift not supported yet."
-  | Reset (t) -> VError "Reset not supported yet."
+  | Shift (x, t) ->
+      let new_env = Env.extend env x (VCont (cont)) in
+      g2 t new_env (fun x -> x)
+      (* 関数化 *)
+      (* g2 t (Env.extend env x (VClosure (fun v2 -> fun c -> c (cont v2)))) (fun x -> x) *)
+  | Reset (t) -> cont (g2 t env (fun x -> x))
 
 (* Eval.f : Syntax.t -> (string, Value.t) Env.t -> Value.t *)
 let f expr env = g2 expr env
