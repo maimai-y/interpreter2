@@ -4,7 +4,9 @@ type t = VNumber of int
        | VClosure of (t -> (t -> t) -> t)
        | VClosureR of (t -> t -> (t -> t) -> t)
        | VError of string
-       | VCont of (t -> t)
+       | VC of (t -> (t -> t) -> t)
+       | VHV of t
+       | VH of (t -> (t -> t) -> t) * ((t -> (t -> t) -> t) -> (t -> t) -> t)
 
 (* プログラムの実行結果を文字列にする関数 *)
 (* Value.to_string : Value.t -> string *)
@@ -14,7 +16,9 @@ let rec to_string value = match value with
   | VClosure (f) -> "<fun>"
   | VClosureR (f) -> "<fun>"
   | VError (s) -> "Error: " ^ s
-  | VCont (f) -> "<fun>"
+  | VC (f) -> "<fun>"
+  | VH (_) -> "VH"
+  | VHV (v) -> to_string v
 
 (* プログラムの実行結果をプリントする関数 *)
 (* Value.print : Value.t -> unit *)

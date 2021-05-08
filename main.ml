@@ -9,7 +9,7 @@ let go () =
     print_newline ();
     print_string "Result : "
   end;
-  print_string (Value.to_string (Eval.f program Env.empty (fun x -> x)));(* 結果を表示する *)
+  print_string (Value.to_string (Eval.f program Env.empty Eval.id));(* 結果を表示する *)
   print_newline ()
 
 (* スタートアップ *)

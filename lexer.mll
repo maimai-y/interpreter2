@@ -41,6 +41,12 @@ rule token = parse
 | "with" { WITH }
 | "shift"{ SHIFT }
 | "reset"{ RESET }
+| "control"{ CONTROL }
+| "prompt" { PROMPT }
+| "shift0" { SHIFT0 }
+| "reset0" { RESET0 }
+| "control0" { CONTROL0 }
+| "prompt0"  { PROMPT0 }
 | digit+                        (* 数字が１個以上 *)
          { NUMBER (int_of_string (Lexing.lexeme lexbuf)) }
 | lower (alpha | digit) *

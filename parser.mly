@@ -14,7 +14,7 @@ let make_fun vars expr =
 %token <string> VAR
 %token TRUE FALSE
 %token IF THEN ELSE LET REC IN FUN ARROW
-%token TRY WITH SHIFT RESET
+%token TRY WITH SHIFT RESET CONTROL PROMPT SHIFT0 RESET0 CONTROL0 PROMPT0
 %token EOF
 /* End of File: 入力の終わりを示す */
 
@@ -85,9 +85,21 @@ expr:
 | TRY expr WITH expr
         { Syntax.Try ($2, $4) }
 | SHIFT VAR ARROW expr
-        { Syntax.Shift ($2, $4) }
+        { Syntax.S ($2, $4) }
 | RESET simple_expr
-        { Syntax.Reset ($2) }
+        { Syntax.Angle_bracket ($2) }
+| CONTROL VAR ARROW expr
+        { Syntax.F ($2, $4) }
+| PROMPT simple_expr
+        { Syntax.Angle_bracket ($2) }
+| SHIFT0 VAR ARROW expr
+        { Syntax.S ($2, $4) }
+| RESET0 simple_expr
+        { Syntax.Angle_bracket0 ($2) }
+| CONTROL0 VAR ARROW expr
+        { Syntax.F ($2, $4) }
+| PROMPT0 simple_expr
+        { Syntax.Angle_bracket0 ($2) }
 | app
         { $1 }
 

@@ -24,8 +24,10 @@ type t = Number of int
        | Fun of string * t
        | App of t * t
        | Try of t * t
-       | Shift of string * t
-       | Reset of t
+       | S of string * t
+       | F of string * t
+       | Angle_bracket of t
+       | Angle_bracket0 of t
 
 (* プログラムを文字列にする関数 *)
 (* Syntax.to_string : Syntax.t -> string *)
@@ -53,10 +55,14 @@ let rec to_string exp = match exp with
         "(" ^ to_string t1 ^ " " ^ to_string t2 ^ ")"
   | Try (t1, t2) ->
         "(try " ^ to_string t1 ^ " with _ -> " ^ to_string t2 ^ ")"
-  | Shift (x, t) ->
-        "(shift " ^ x ^ " -> " ^ to_string t ^ ")"
-  | Reset (t) ->
-        "(reset -> " ^ to_string t ^ ")"
+  | S (x, t) ->
+        "(S " ^ x ^ " -> " ^ to_string t ^ ")"
+  | Angle_bracket (t) ->
+        "< " ^ to_string t ^ ">"
+  | F (x, t) ->
+        "(F " ^ x ^ " -> " ^ to_string t ^ ")"
+  | Angle_bracket0 (t) ->
+        "< " ^ to_string t ^ ">0"
 
 (* プログラムをプリントする関数 *)
 (* Syntax.print : Syntax.t -> unit *)

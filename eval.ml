@@ -1,6 +1,28 @@
 open Syntax
 open Value
 
+let id = fun v -> VHV (v)
+
+let rec hr_stop x cont' = match x with
+    VH (c, f) -> hr_stop (f c id) cont'
+  | VHV (v) -> cont' v
+  | _ -> VError ("Bad arguments to hr_stop")
+
+let rec hs_stop x cont' = match x with
+    VH (c, f) -> hs_stop (f c id) cont'
+  | VHV (v) -> cont' v
+  | _ -> VError ("Bad arguments to hs_stop")
+
+let rec hr_prop x cont' = match x with
+    VH (c, f) -> f c cont'
+  | VHV (v) -> cont' v
+  | _ -> VError ("Bad arguments to hr_prop")
+
+let rec hs_prop x cont' = match x with
+    VH (c, f) -> VH ((fun x -> fun cont'' -> hs_prop (c x cont') cont''), f)
+  | VHV (v) -> cont' v
+  | _ -> VError ("Bad arguments to hs_prop")
+
 (* 実際の計算をする関数 *)
 (* Eval.g2 : Syntax.t -> (string, Value.t) Env.t -> (Value.type -> Value.type) -> Value.t *)
 let rec g2 expr env cont = match expr with
@@ -62,7 +84,7 @@ let rec g2 expr env cont = match expr with
           VClosure (f) -> f v2 cont
         | VClosureR (f) -> f v1 v2 cont
         | VError (s) -> VError (s)
-        | VCont (f) -> cont (f v2)
+        | VC (f) -> f v2 cont
         | _ -> VError ("Not a function: " ^
                        Value.to_string v1)
       end))
@@ -72,12 +94,20 @@ let rec g2 expr env cont = match expr with
           VError (s) -> g2 t2 env cont
         | _ -> cont v1
       end
-  | Shift (x, t) ->
-      let new_env = Env.extend env x (VCont (cont)) in
-      g2 t new_env (fun x -> x)
-      (* 関数化 *)
-      (* g2 t (Env.extend env x (VClosure (fun v2 -> fun c -> c (cont v2)))) (fun x -> x) *)
-  | Reset (t) -> cont (g2 t env (fun x -> x))
+
+  | S (k, e) ->
+      let c = fun x -> fun cont' -> hs_stop (cont x) cont' in
+      let f = fun c -> fun cont' -> g2 e (Env.extend env k (VC c)) cont' in
+      VH (c, f)
+
+  | Angle_bracket (e) -> hr_stop (g2 e env id) cont
+
+  | F (k, e) ->
+      let c = fun x -> fun cont' -> hs_prop (cont x) cont' in
+      let f = fun c -> fun cont' -> g2 e (Env.extend env k (VC c)) cont' in
+      VH (c, f)
+
+  | Angle_bracket0 (e) -> hr_prop (g2 e env id) cont
 
 (* Eval.f : Syntax.t -> (string, Value.t) Env.t -> Value.t *)
 let f expr env = g2 expr env
