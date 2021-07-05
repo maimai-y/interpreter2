@@ -1,113 +1,98 @@
 open Syntax
 open Value
 
-let id = fun v -> VHV (v)
+let idk v trl = match trl with
+    Idt -> v
+  | K (k) -> k v Idt
 
-let rec hr_stop x cont' = match x with
-    VH (c, f) -> hr_stop (f c id) cont'
-  | VHV (v) -> cont' v
-  | _ -> VError ("Bad arguments to hr_stop")
+let rec cons : (t -> trail -> t) -> trail -> trail = fun k -> fun trl ->
+  match trl with
+      Idt -> K (k)
+    | K (k') -> K (fun v -> fun t' -> k v (cons k' t'))
 
-let rec hs_stop x cont' = match x with
-    VH (c, f) -> hs_stop (f c id) cont'
-  | VHV (v) -> cont' v
-  | _ -> VError ("Bad arguments to hs_stop")
-
-let rec hr_prop x cont' = match x with
-    VH (c, f) -> f c cont'
-  | VHV (v) -> cont' v
-  | _ -> VError ("Bad arguments to hr_prop")
-
-let rec hs_prop x cont' = match x with
-    VH (c, f) -> VH ((fun x -> fun cont'' -> hs_prop (c x cont') cont''), f)
-  | VHV (v) -> cont' v
-  | _ -> VError ("Bad arguments to hs_prop")
-
+let atsign : trail -> trail -> trail = fun trl1 -> fun trl2 ->
+  match trl1 with
+      Idt -> trl2
+    | K (k') -> cons k' trl2
+ 
 (* 実際の計算をする関数 *)
 (* Eval.g2 : Syntax.t -> (string, Value.t) Env.t -> (Value.type -> Value.type) -> Value.t *)
-let rec g2 expr env cont = match expr with
-    Number (n) -> cont (VNumber (n))
-  | Bool (b) -> cont (VBool (b))
+let rec g2 expr env cont trl = match expr with
+    Number (n) -> cont (VNumber (n)) trl
+  | Bool (b) -> cont (VBool (b)) trl
   | Var (x) ->
       begin try
-        cont (Env.get env x)
+        cont (Env.get env x) trl
       with Not_found -> VError ("Unbound variable: " ^ x) end
   | Op (arg1, op, arg2) ->
-      g2 arg1 env (fun v1 ->
-      g2 arg2 env (fun v2 ->
+      g2 arg1 env (fun v1 -> fun trl1 ->
+      g2 arg2 env (fun v2 -> fun trl2 ->
       begin match (v1, v2) with
           (VNumber (n1), VNumber (n2)) ->
             begin match op with
-                Plus      -> cont (VNumber (n1 + n2))
-              | Minus     -> cont (VNumber (n1 - n2))
-              | Times     -> cont (VNumber (n1 * n2))
+                Plus      -> cont (VNumber (n1 + n2)) trl2
+              | Minus     -> cont (VNumber (n1 - n2)) trl2
+              | Times     -> cont (VNumber (n1 * n2)) trl2
               | Divide    -> if n2 = 0 then VError "Division by zero"
-                             else cont (VNumber (n1 / n2))
-              | Equal     -> cont (VBool (n1 = n2))
-              | NotEqual  -> cont (VBool (n1 <> n2))
-              | Less      -> cont (VBool (n1 < n2))
-              | LessEqual -> cont (VBool (n1 <= n2))
+                             else cont (VNumber (n1 / n2)) trl2
+              | Equal     -> cont (VBool (n1 = n2)) trl2
+              | NotEqual  -> cont (VBool (n1 <> n2)) trl2
+              | Less      -> cont (VBool (n1 < n2)) trl2
+              | LessEqual -> cont (VBool (n1 <= n2)) trl2
             end
         | (VError (s), _) -> VError (s)
         | (_, VError (s)) -> VError (s)
         | (_, _) -> VError ("Bad arguments to" ^ op_to_string op ^ ": " ^
                             Value.to_string v1 ^ ", " ^
                             Value.to_string v2)
-      end))
+      end) trl1 ) trl
   | If (p, t, e) ->
-      g2 p env (fun v ->
+      g2 p env (fun v -> fun trl' ->
       begin match v with
-          VBool (true) -> g2 t env cont
-        | VBool (false) -> g2 e env cont
+          VBool (true) -> g2 t env cont trl'
+        | VBool (false) -> g2 e env cont trl'
         | VError (s) -> VError (s)
         | _ -> VError ("Bad predicate for if: " ^
                        Value.to_string v)
-      end)
+      end) trl
   | Let (x, t1, t2) ->
-      g2 t1 env (fun v1 ->
+      g2 t1 env (fun v1 -> fun trl' ->
       let new_env = Env.extend env x v1 in
-      g2 t2 new_env cont)
+      g2 t2 new_env cont trl') trl
+  
   | Letrec (f, x, t1, t2) ->
       let new_env = Env.extend env f 
-        (VClosureR (fun v1 -> fun v2 -> fun c -> g2 t1 (Env.extend (Env.extend env x v2) f v1) c)) in
-      g2 t2 new_env cont
-      (* let rec を使った別解 *)
-      (* let rec vclo = VClosure (fun v -> fun c -> g2 t1 (Env.extend (Env.extend env x v) f vclo) c) in
-      let new_env = Env.extend env f vclo in
-      g2 t2 new_env cont *)
+        (VClosureR (fun v1 -> fun v2 -> fun c -> fun trl' -> g2 t1 (Env.extend (Env.extend env x v2) f v1) c trl')) in
+      g2 t2 new_env cont trl
   | Fun (x, t) ->
-      cont (VClosure (fun v2 -> fun c -> g2 t (Env.extend env x v2) c))
+        cont (VClosure (fun v2 -> fun c -> fun trl' -> g2 t (Env.extend env x v2) c trl')) trl
   | App (t1, t2) ->
-      g2 t1 env (fun v1 ->
-      g2 t2 env (fun v2 ->
+      g2 t1 env (fun v1 -> fun trl1 ->
+      g2 t2 env (fun v2 -> fun trl2 ->
       begin match v1 with
-          VClosure (f) -> f v2 cont
-        | VClosureR (f) -> f v1 v2 cont
+          VClosure (f) -> f v2 cont trl2
+        | VClosureR (f) -> f v1 v2 cont trl2
         | VError (s) -> VError (s)
-        | VC (f) -> f v2 cont
         | _ -> VError ("Not a function: " ^
-                       Value.to_string v1)
-      end))
+                        Value.to_string v1)
+      end) trl1) trl
   | Try (t1, t2) ->
-      let v1 = g2 t1 env (fun x -> x) in
+      let v1 = g2 t1 env idk Idt in
       begin match v1 with
-          VError (s) -> g2 t2 env cont
-        | _ -> cont v1
+          VError (s) -> g2 t2 env cont trl
+        | _ -> cont v1 trl
       end
 
   | S (k, e) ->
-      let c = fun x -> fun cont' -> hs_stop (cont x) cont' in
-      let f = fun c -> fun cont' -> g2 e (Env.extend env k (VC c)) cont' in
-      VH (c, f)
+      let c = fun v -> fun cont' -> fun trl' -> cont' (cont v trl) trl' in
+      let new_env = Env.extend env k (VClosure c) in
+      g2 e new_env idk Idt
 
-  | Angle_bracket (e) -> hr_stop (g2 e env id) cont
+  | Angle_bracket (e) -> cont (g2 e env idk Idt) trl
 
   | F (k, e) ->
-      let c = fun x -> fun cont' -> hs_prop (cont x) cont' in
-      let f = fun c -> fun cont' -> g2 e (Env.extend env k (VC c)) cont' in
-      VH (c, f)
+      let c = fun v -> fun cont' -> fun trl' -> cont v (atsign trl (cons cont' trl')) in
+      let new_env = Env.extend env k (VClosure c) in
+      g2 e new_env idk Idt
 
-  | Angle_bracket0 (e) -> hr_prop (g2 e env id) cont
-
-(* Eval.f : Syntax.t -> (string, Value.t) Env.t -> Value.t *)
-let f expr env = g2 expr env
+  | Angle_bracket0 (e) -> VError ("Angle_bracket0は未実装")

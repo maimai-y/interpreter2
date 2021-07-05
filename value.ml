@@ -1,12 +1,11 @@
+type trail = Idt | K of (t -> trail -> t)
+
 (* Value.t : プログラムの実行結果を表す型 *)
-type t = VNumber of int
+and t = VNumber of int
        | VBool of bool
-       | VClosure of (t -> (t -> t) -> t)
-       | VClosureR of (t -> t -> (t -> t) -> t)
+       | VClosure of (t -> (t -> trail -> t) -> trail -> t)
+       | VClosureR of (t -> t -> (t -> trail -> t) -> trail -> t)
        | VError of string
-       | VC of (t -> (t -> t) -> t)
-       | VHV of t
-       | VH of (t -> (t -> t) -> t) * ((t -> (t -> t) -> t) -> (t -> t) -> t)
 
 (* プログラムの実行結果を文字列にする関数 *)
 (* Value.to_string : Value.t -> string *)
@@ -16,9 +15,6 @@ let rec to_string value = match value with
   | VClosure (f) -> "<fun>"
   | VClosureR (f) -> "<fun>"
   | VError (s) -> "Error: " ^ s
-  | VC (f) -> "<fun>"
-  | VH (_) -> "VH"
-  | VHV (v) -> to_string v
 
 (* プログラムの実行結果をプリントする関数 *)
 (* Value.print : Value.t -> unit *)
