@@ -85,21 +85,21 @@ expr:
 | TRY expr WITH expr
         { Syntax.Try ($2, $4) }
 | SHIFT VAR ARROW expr
-        { Syntax.S ($2, $4) }
+        { Syntax.Shift ($2, $4) }
 | RESET simple_expr
         { Syntax.Angle_bracket ($2) }
 | CONTROL VAR ARROW expr
-        { Syntax.F ($2, $4) }
+        { Syntax.Control ($2, $4) }
 | PROMPT simple_expr
         { Syntax.Angle_bracket ($2) }
 | SHIFT0 VAR ARROW expr
-        { Syntax.S ($2, $4) }
+        { Syntax.Shift0 ($2, $4) }
 | RESET0 simple_expr
-        { Syntax.Angle_bracket0 ($2) }
+        { Syntax.Angle_bracket ($2) }
 | CONTROL0 VAR ARROW expr
-        { Syntax.F ($2, $4) }
+        { Syntax.Control0 ($2, $4) }
 | PROMPT0 simple_expr
-        { Syntax.Angle_bracket0 ($2) }
+        { Syntax.Angle_bracket ($2) }
 | app
         { $1 }
 

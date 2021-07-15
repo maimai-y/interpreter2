@@ -1,10 +1,21 @@
-type trail = Idt | K of (t -> trail -> t)
+type trail = Idt | K of (t -> trail -> (cont * trail) list -> t)
+
+and cont = Cont of (t -> trail -> (cont * trail) list -> t)
 
 (* Value.t : プログラムの実行結果を表す型 *)
 and t = VNumber of int
        | VBool of bool
-       | VClosure of (t -> (t -> trail -> t) -> trail -> t)
-       | VClosureR of (t -> t -> (t -> trail -> t) -> trail -> t)
+       | VClosure of (t -> 
+                      cont -> 
+                      trail -> 
+                      (cont * trail) list -> 
+                      t)
+       | VClosureR of (t -> 
+                       t -> 
+                       cont -> 
+                       trail ->
+                       (cont * trail) list ->
+                       t)
        | VError of string
 
 (* プログラムの実行結果を文字列にする関数 *)
