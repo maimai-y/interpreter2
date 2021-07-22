@@ -97,17 +97,20 @@ let rec g2 expr env conta trl mc = match conta with Cont (cont) -> match expr wi
         let new_env = Env.extend env k (VClosure c) in
         g2 e new_env (Cont (idk)) Idt mc
   | Shift0 (k, e) ->
-      begin match mc with 
-      (cont0, t0) :: m0 ->
-        let c = fun v -> fun conta' -> fun trl' -> fun mc' -> cont v trl ((conta', trl') :: mc') in
-        let new_env = Env.extend env k (VClosure c) in
-        g2 e new_env cont0 t0 m0
+      begin match mc with
+          [] -> VError ("short of mc")
+        | (cont0, t0) :: m0 ->
+            let c = fun v -> fun conta' -> fun trl' -> fun mc' -> cont v trl ((conta', trl') :: mc') in
+            let new_env = Env.extend env k (VClosure c) in
+            g2 e new_env cont0 t0 m0
       end
   | Control0 (k, e) ->
-      begin match mc with (cont0, t0) :: m0 ->
-        let c = fun v -> fun conta' -> fun trl' -> fun mc' -> cont v (atsign trl (cons conta' trl')) mc' in
-        let new_env = Env.extend env k (VClosure c) in
-        g2 e new_env cont0 t0 m0
+      begin match mc with
+          [] -> VError ("short of mc")
+        | (cont0, t0) :: m0 ->
+            let c = fun v -> fun conta' -> fun trl' -> fun mc' -> cont v (atsign trl (cons conta' trl')) mc' in
+            let new_env = Env.extend env k (VClosure c) in
+            g2 e new_env cont0 t0 m0
       end
 
   | Angle_bracket (e) -> g2 e env (Cont (idk)) Idt ((conta, trl) :: mc)

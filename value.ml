@@ -1,5 +1,9 @@
 type trail = Idt | K of (t -> trail -> (cont * trail) list -> t)
 
+(* and cont = CInit
+ *          | CValue of (v)
+ *          | COp of (v, op) *)
+
 and cont = Cont of (t -> trail -> (cont * trail) list -> t)
 
 (* Value.t : プログラムの実行結果を表す型 *)
