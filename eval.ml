@@ -5,7 +5,7 @@ open Value
 let rec cons k trl =
   match trl with
       Idt -> K (k)
-    | K (k') -> K (fun v -> fun t' -> k v (cons k' t'))
+    | K (k') -> K (CCons (k, k'))
 
 let atsign trl1 trl2 =
   match trl1 with
@@ -40,37 +40,35 @@ let rec g2 expr env cont trl mc = match expr with
           VError (s) -> g2 t2 env cont trl mc
         | _ -> applyToCont cont v1 trl mc
       end
-(*
   | Shift (k, e) ->
-      let new_env = Env.extend env k (VContSS0 (conta, trl)) in
-      g2 e new_env (Cont (idk)) Idt mc
+      let new_env = Env.extend env k (VContSS0 (cont, trl)) in
+      g2 e new_env C0 Idt mc
   | Control (k, e) ->
-      let new_env = Env.extend env k (VContCC0 (conta, trl)) in
-      g2 e new_env (Cont (idk)) Idt mc
+      let new_env = Env.extend env k (VContCC0 (cont, trl)) in
+      g2 e new_env C0 Idt mc
   | Shift0 (k, e) ->
       begin match mc with
           [] -> VError ("short of mc")
         | (cont0, t0) :: m0 ->
-            let new_env = Env.extend env k (VContSS0 (conta, trl)) in
+            let new_env = Env.extend env k (VContSS0 (cont, trl)) in
             g2 e new_env cont0 t0 m0
       end
   | Control0 (k, e) ->
       begin match mc with
           [] -> VError ("short of mc")
         | (cont0, t0) :: m0 ->
-            let new_env = Env.extend env k (VContCC0 (conta, trl)) in
+            let new_env = Env.extend env k (VContCC0 (cont, trl)) in
             g2 e new_env cont0 t0 m0
       end
+  | Angle_bracket (e) -> g2 e env C0 Idt ((cont, trl) :: mc)
 
-  | Angle_bracket (e) -> g2 e env (Cont (idk)) Idt ((conta, trl) :: mc)
-*)
   and applyToCont cont = fun v trl mc -> match cont with
       C0 -> 
         begin match trl with
             Idt -> begin match mc with
                     [] -> v
                   | (cont, t) :: m -> applyToCont cont v t m end      
-          | K (k) -> k v Idt mc
+          | K (k) -> applyToCont k v Idt mc
         end
     | COp1 (e2, env', op, cont') -> g2 e2 env' (COp2 (v, op, cont')) trl mc
     | COp2 (v1, op, cont') ->
@@ -109,12 +107,10 @@ let rec g2 expr env cont trl mc = match expr with
         begin match v1 with
             VClosure (x, e, env') -> g2 e (Env.extend env' x v) cont' trl mc
           | VClosureR (f, x, e1, env') -> g2 e1 (Env.extend (Env.extend env' x v) f v1) cont' trl mc
-          (*
-          | VContSS0 (cont', trl') -> cont' v2 trl' ((conta, trl2) :: mc2)
-          | VContCC0 (cont', trl') -> cont' v2 (atsign trl' (cons conta trl2)) mc2
-
-          | VError (s) -> VError (s) *)
+          | VContSS0 (cont'', trl') -> applyToCont cont'' v trl' ((cont', trl) :: mc)
+          | VContCC0 (cont'', trl') -> applyToCont cont'' v (atsign trl' (cons cont' trl)) mc
+          | VError (s) -> VError (s)
           | _ -> VError ("Not a function: " ^
                           Value.to_string v1)
-                          
         end
+    | CCons (k, k') -> applyToCont k v (cons k' trl) mc
