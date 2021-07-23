@@ -9,17 +9,10 @@ and cont = Cont of (t -> trail -> (cont * trail) list -> t)
 (* Value.t : プログラムの実行結果を表す型 *)
 and t = VNumber of int
        | VBool of bool
-       | VClosure of (t -> 
-                      cont -> 
-                      trail -> 
-                      (cont * trail) list -> 
-                      t)
-       | VClosureR of (t -> 
-                       t -> 
-                       cont -> 
-                       trail ->
-                       (cont * trail) list ->
-                       t)
+       | VClosure of (string * Syntax.t * (string, t) Env.t)
+       | VClosureR of (string * string * Syntax.t * (string, t) Env.t)
+       | VContSS0 of (cont * trail)
+       | VContCC0 of (cont * trail)
        | VError of string
 
 (* プログラムの実行結果を文字列にする関数 *)
@@ -27,8 +20,10 @@ and t = VNumber of int
 let rec to_string value = match value with
     VNumber (n) -> string_of_int n
   | VBool (b) -> if b then "true" else "false"
-  | VClosure (f) -> "<fun>"
-  | VClosureR (f) -> "<fun>"
+  | VClosure (x, t', env') -> "<fun>"
+  | VClosureR (f, x, t1', env') -> "<funR>"
+  | VContSS0 (c, t) -> "<ContSS0>"
+  | VContCC0 (c, t) -> "<ContCC0>"
   | VError (s) -> "Error: " ^ s
 
 (* プログラムの実行結果をプリントする関数 *)

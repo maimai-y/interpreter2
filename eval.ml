@@ -64,18 +64,20 @@ let rec g2 expr env conta trl mc = match conta with Cont (cont) -> match expr wi
   
       
   | Letrec (f, x, t1, t2) ->
-      let new_env = Env.extend env f 
-        (VClosureR (fun v1 -> fun v2 -> fun c -> fun trl' -> fun mc' -> 
-          g2 t1 (Env.extend (Env.extend env x v2) f v1) c trl' mc')) in
+    let new_env = Env.extend env f (VClosureR (f, x, t1, env)) in
       g2 t2 new_env conta trl mc
   | Fun (x, t) ->
-        cont (VClosure (fun v2 -> fun c -> fun trl' -> fun mc' -> g2 t (Env.extend env x v2) c trl' mc')) trl mc
+        cont (VClosure (x, t, env)) trl mc
   | App (t1, t2) ->
       g2 t1 env (Cont (fun v1 -> fun trl1 -> fun mc1 ->
       g2 t2 env (Cont (fun v2 -> fun trl2 -> fun mc2 ->
       begin match v1 with
-          VClosure (f) -> f v2 conta trl2 mc2
-        | VClosureR (f) -> f v1 v2 conta trl2 mc2
+          VClosure (x, t', env') -> g2 t' (Env.extend env' x v2) conta trl2 mc2
+        | VClosureR (f, x, t1', env') -> g2 t1' (Env.extend (Env.extend env' x v2) f v1) conta trl2 mc2
+
+        | VContSS0 (Cont (cont'), trl') -> cont' v2 trl' ((conta, trl2) :: mc2)
+        | VContCC0 (Cont (cont'), trl') -> cont' v2 (atsign trl' (cons conta trl2)) mc2
+
         | VError (s) -> VError (s)
         | _ -> VError ("Not a function: " ^
                         Value.to_string v1)
@@ -88,28 +90,23 @@ let rec g2 expr env conta trl mc = match conta with Cont (cont) -> match expr wi
       end
 
   | Shift (k, e) ->
-      let c = fun v -> fun conta' -> fun trl' -> fun mc' -> cont v trl ((conta', trl') :: mc') in
-      let new_env = Env.extend env k (VClosure c) in
+      let new_env = Env.extend env k (VContSS0 (conta, trl)) in
       g2 e new_env (Cont (idk)) Idt mc
   | Control (k, e) ->
-        let c = fun v -> fun conta' -> fun trl' -> fun mc' ->
-                  cont v (atsign trl (cons conta' trl')) mc' in
-        let new_env = Env.extend env k (VClosure c) in
-        g2 e new_env (Cont (idk)) Idt mc
+      let new_env = Env.extend env k (VContCC0 (conta, trl)) in
+      g2 e new_env (Cont (idk)) Idt mc
   | Shift0 (k, e) ->
       begin match mc with
           [] -> VError ("short of mc")
         | (cont0, t0) :: m0 ->
-            let c = fun v -> fun conta' -> fun trl' -> fun mc' -> cont v trl ((conta', trl') :: mc') in
-            let new_env = Env.extend env k (VClosure c) in
+            let new_env = Env.extend env k (VContSS0 (conta, trl)) in
             g2 e new_env cont0 t0 m0
       end
   | Control0 (k, e) ->
       begin match mc with
           [] -> VError ("short of mc")
         | (cont0, t0) :: m0 ->
-            let c = fun v -> fun conta' -> fun trl' -> fun mc' -> cont v (atsign trl (cons conta' trl')) mc' in
-            let new_env = Env.extend env k (VClosure c) in
+            let new_env = Env.extend env k (VContCC0 (conta, trl)) in
             g2 e new_env cont0 t0 m0
       end
 
