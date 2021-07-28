@@ -1,13 +1,14 @@
 type trail = Idt | K of cont
 
-and cont = C0
-         | COp1 of (Syntax.t * (string, t) Env.t * Syntax.op_t * cont)
-         | COp2 of (t * Syntax.op_t * cont)
-         | CIf of (Syntax.t * Syntax.t * (string, t) Env.t * cont)
-         | CLet of (string * Syntax.t * cont * (string, t) Env.t)
-         | CApp1 of (Syntax.t * (string, t) Env.t * cont)
-         | CApp2 of (t * cont)
-         | CCons of (cont * cont)
+and cont = fst_cont list
+
+and fst_cont = COp1 of (Syntax.t * (string, t) Env.t * Syntax.op_t)
+             | COp2 of (t * Syntax.op_t)
+             | CIf of (Syntax.t * Syntax.t * (string, t) Env.t)
+             | CLet of (string * Syntax.t * (string, t) Env.t)
+             | CApp1 of (Syntax.t * (string, t) Env.t)
+             | CApp2 of t
+             | CCons of cont
 
 (* Value.t : プログラムの実行結果を表す型 *)
 and t = VNumber of int
