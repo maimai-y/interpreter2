@@ -13,54 +13,59 @@ let atsign trl1 trl2 =
     | K (k) -> cons k trl2
 
 (* 実際の計算をする関数 *)
-(* Eval.g2 : Syntax.t -> (string, Value.t) Env.t -> Value.cont -> Value.trail -> (Value.cont * Value.trail) list -> Value.t *)
-let rec g2 expr env cont trl mc = match expr with
+(* Eval.g2 : Syntax.t -> string list * t list -> Value.cont -> Value.trail -> (Value.cont * Value.trail) list -> Value.t *)
+let rec g2 expr xs vs cont trl mc = match expr with
     Number (n) -> applyToCont cont (VNumber (n)) trl mc
   | Bool (b) -> applyToCont cont (VBool (b)) trl mc
   | Var (x) ->
       begin try
-        applyToCont cont (Env.get env x) trl mc
-      with Not_found -> VError ("Unbound variable: " ^ x) end
+        applyToCont cont (Env.get xs vs x) trl mc
+      with Env.UnboundVariable -> VError ("Unbound variable: " ^ x) end
   | Op (e1, op, e2) ->
-      g2 e1 env (COp1 (e2, env, op) :: cont) trl mc
+      g2 e1 xs vs (COp1 (e2, xs, vs, op) :: cont) trl mc
   | If (p, t, e) ->
-      g2 p env (CIf (t, e, env) :: cont) trl mc
+      g2 p xs vs (CIf (t, e, xs, vs) :: cont) trl mc
   | Let (x, t1, t2) ->
-      g2 t1 env (CLet (x, t2, env) :: cont) trl mc
+      g2 t1 xs vs (CLet (x, t2, xs, vs) :: cont) trl mc
   | Letrec (f, x, t1, t2) ->
-      let new_env = Env.extend env f (VClosureR (f, x, t1, env)) in
-        g2 t2 new_env cont trl mc
+      let new_xs = f :: xs in
+      let new_vs = (VClosureR (f, x, t1, xs, vs)) :: vs in
+        g2 t2 new_xs new_vs cont trl mc
   | Fun (x, t) ->
-      applyToCont cont (VClosure (x, t, env)) trl mc
+      applyToCont cont (VClosure (x, t, xs, vs)) trl mc
   | App (t1, t2) ->
-      g2 t1 env (CApp1 (t2, env) :: cont) trl mc
+      g2 t1 xs vs (CApp1 (t2, xs, vs) :: cont) trl mc
   | Try (t1, t2) ->
-      let v1 = g2 t1 env [] Idt [] in
+      let v1 = g2 t1 xs vs [] Idt [] in
       begin match v1 with
-          VError (s) -> g2 t2 env cont trl mc
+          VError (s) -> g2 t2 xs vs cont trl mc
         | _ -> applyToCont cont v1 trl mc
       end
   | Shift (k, e) ->
-      let new_env = Env.extend env k (VContSS0 (cont, trl)) in
-      g2 e new_env [] Idt mc
+      let new_xs = k :: xs in
+      let new_vs = VContSS0 (cont, trl) :: vs in
+      g2 e new_xs new_vs [] Idt mc
   | Control (k, e) ->
-      let new_env = Env.extend env k (VContCC0 (cont, trl)) in
-      g2 e new_env [] Idt mc
+      let new_xs = k :: xs in
+      let new_vs = VContCC0 (cont, trl) :: vs in
+      g2 e new_xs new_vs [] Idt mc
   | Shift0 (k, e) ->
       begin match mc with
           [] -> VError ("short of mc")
         | (cont0, t0) :: m0 ->
-            let new_env = Env.extend env k (VContSS0 (cont, trl)) in
-            g2 e new_env cont0 t0 m0
+            let new_xs = k :: xs in
+            let new_vs = VContSS0 (cont, trl) :: vs in
+            g2 e new_xs new_vs cont0 t0 m0
       end
   | Control0 (k, e) ->
       begin match mc with
           [] -> VError ("short of mc")
         | (cont0, t0) :: m0 ->
-            let new_env = Env.extend env k (VContCC0 (cont, trl)) in
-            g2 e new_env cont0 t0 m0
+            let new_xs = k :: xs in
+            let new_vs = VContCC0 (cont, trl) :: vs in
+            g2 e new_xs new_vs cont0 t0 m0
       end
-  | Angle_bracket (e) -> g2 e env [] Idt ((cont, trl) :: mc)
+  | Angle_bracket (e) -> g2 e xs vs [] Idt ((cont, trl) :: mc)
 
 and applyToCont cont = fun v trl mc -> match cont with
       [] -> 
@@ -71,7 +76,7 @@ and applyToCont cont = fun v trl mc -> match cont with
           | K (k) -> applyToCont k v Idt mc
         end
     | fst :: cont_rest -> begin match fst with
-        COp1 (e2, env', op) -> g2 e2 env' (COp2 (v, op) :: cont_rest) trl mc
+        COp1 (e2, xs', vs', op) -> g2 e2 xs' vs' (COp2 (v, op) :: cont_rest) trl mc
       | COp2 (v1, op) ->
           begin match (v1, v) with
               (VNumber (n1), VNumber (n2)) ->
@@ -92,22 +97,21 @@ and applyToCont cont = fun v trl mc -> match cont with
                               Value.to_string v1 ^ ", " ^
                               Value.to_string v)
           end
-      | CIf (t, e, env') ->
+      | CIf (t, e, xs', vs') ->
           begin match v with
-              VBool (true) -> g2 t env' cont_rest trl mc
-          | VBool (false) -> g2 e env' cont_rest trl mc
+            VBool (true) -> g2 t xs' vs' cont_rest trl mc
+          | VBool (false) -> g2 e xs' vs' cont_rest trl mc
           | VError (s) -> VError (s)
           | _ -> VError ("Bad predicate for if: " ^
                           Value.to_string v)
           end
-      | CLet (x, e2, env') ->
-          let new_env = Env.extend env' x v in
-          g2 e2 new_env cont_rest trl mc
-      | CApp1 (e2, env') -> g2 e2 env' (CApp2 (v) :: cont_rest) trl mc
+      | CLet (x, e2, xs', vs') ->
+          g2 e2 (x :: xs') (v :: vs') cont_rest trl mc
+      | CApp1 (e2, xs', vs') -> g2 e2 xs' vs' (CApp2 (v) :: cont_rest) trl mc
       | CApp2 (v1) -> 
           begin match v1 with
-            VClosure (x, e, env') -> g2 e (Env.extend env' x v) cont_rest trl mc
-          | VClosureR (f, x, e1, env') -> g2 e1 (Env.extend (Env.extend env' x v) f v1) cont_rest trl mc
+            VClosure (x, e, xs', vs') -> g2 e (x :: xs') (v :: vs') cont_rest trl mc
+          | VClosureR (f, x, e1, xs', vs') -> g2 e1 (f :: x :: xs') (v1 :: v :: vs') cont_rest trl mc
           | VContSS0 (cont'', trl') -> applyToCont cont'' v trl' ((cont_rest, trl) :: mc)
           | VContCC0 (cont'', trl') -> applyToCont cont'' v (atsign trl' (cons cont_rest trl)) mc
           | VError (s) -> VError (s)

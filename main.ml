@@ -9,7 +9,7 @@ let go () =
     print_newline ();
     print_string "Result : "
   end;
-  print_string (Value.to_string (Eval.g2 program Env.empty [] Value.Idt []));(* 結果を表示する *)
+  print_string (Value.to_string (Eval.g2 program [] [] [] Value.Idt []));(* 結果を表示する *)
   print_newline ()
 
 (* スタートアップ *)
