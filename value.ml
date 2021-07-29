@@ -1,23 +1,26 @@
-type trail = Idt | K of cont
+type trail = Idt | K of cont * stack
 
-and cont = fst_cont list
+and cont = frame list
 
-and fst_cont = COp1 of (Syntax.t * string list * t list * Syntax.op_t)
-             | COp2 of (t * Syntax.op_t)
-             | CIf of (Syntax.t * Syntax.t * string list * t list)
-             | CLet of (string * Syntax.t * string list * t list)
-             | CApp1 of (Syntax.t * string list * t list)
-             | CApp2 of t
-             | CCons of cont
+and frame = COp1 of (Syntax.t * string list * Syntax.op_t)
+          | COp2 of (Syntax.op_t)
+          | CIf of (Syntax.t * Syntax.t * string list)
+          | CLet of (string * Syntax.t * string list)
+          | CApp1 of (Syntax.t * string list)
+          | CApp2
+          | CCons of cont
 
-(* Value.t : プログラムの実行結果を表す型 *)
-and t = VNumber of int
-       | VBool of bool
-       | VClosure of (string * Syntax.t * string list * t list)
-       | VClosureR of (string * string * Syntax.t * string list * t list)
-       | VContSS0 of (cont * trail)
-       | VContCC0 of (cont * trail)
-       | VError of string
+and stack = v list
+
+and v = VNumber of int
+      | VBool of bool
+      | VClosure of (string * Syntax.t * string list * v list)
+      | VClosureR of (string * string * Syntax.t * string list * v list)
+      | VContSS0 of (cont * stack * trail)
+      | VContCC0 of (cont * stack * trail)
+      | VError of string
+      | VEnvVS of v list
+      | VCons of stack
 
 (* プログラムの実行結果を文字列にする関数 *)
 (* Value.to_string : Value.t -> string *)
@@ -26,9 +29,11 @@ let rec to_string value = match value with
   | VBool (b) -> if b then "true" else "false"
   | VClosure (x, t', xs', vs') -> "<fun>"
   | VClosureR (f, x, t1', xs', vs') -> "<funR>"
-  | VContSS0 (c, t) -> "<ContSS0>"
-  | VContCC0 (c, t) -> "<ContCC0>"
+  | VContSS0 (c, s, t) -> "<ContSS0>"
+  | VContCC0 (c, s, t) -> "<ContCC0>"
   | VError (s) -> "Error: " ^ s
+  | VEnvVS (lst) -> "<VEnvVS>"
+  | VCons (s) -> "<vcons>"
 
 (* プログラムの実行結果をプリントする関数 *)
 (* Value.print : Value.t -> unit *)
